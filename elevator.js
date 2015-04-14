@@ -32,9 +32,9 @@
 
 			elevator.on("floor_button_pressed", function(floorNum) {
 				elevator.goToFloor(floorNum);
-				elevator.destinationQueue = sortDestinations(elevator.destinationQueue, elevator.currentFloor(), elevator.currntFloor() > floorNum ? "down" : "up");
-				setIndicator(elevator, floorNum);
+				elevator.destinationQueue = sortDestinationsByMinimumMovement(elevator.destinationQueue, elevator.currentFloor());
 				elevator.checkDestinationQueue();
+				setIndicator(elevator, elevator.destinationQueue[0]);
 			});
 
 			elevator.on("passing_floor", function(floorNum, direction) {
@@ -53,6 +53,33 @@
 				elevator.checkDestinationQueue();
 			});
 		});
+
+		function sortDestinationsByMinimumMovement(elevator.destinationQueue, elevator.currentFloor()) {
+			var upperFloorsSorted = getUpperFloorsSorted(destinations, currentFloorNumber);
+			var lowerFloorsSorted = getLowerFloorsSorted(destinations, currentFloorNumber);
+
+			var upperFirstConcat = [currentFloorNumber].concat(upperFloorsSorted).concat(lowerFloorsSorted);
+			var lowerFirstConcat = [currentFloorNumber].concat(lowerFloorsSorted).concat(upperFloorsSorted);
+			var upperFirstMovement = getMovementCount(upperFirstConcat);
+			var lowerFirstMovement = getMovementCount(lowerFirstConcat);
+
+			if (upperFirstMovement > lowerFirstMovement) {
+				return lowerFirstConcat;
+			} else {
+				return upperFirstConcat;
+			}
+		}
+
+		function getMovementCount(destinations) {
+			var count = 0;
+			for(var index in destinations) {
+				if (index === destinations.length - 1) {
+					break;
+				}
+				count += Math.abs(destinations[index] - destinations[index - 1]);
+			}
+			return count;
+		}
 
 		function sortDestinations(destinations, currentFloorNumber, direction) {
 			var upperFloorsSorted = getUpperFloorsSorted(destinations, currentFloorNumber);
