@@ -3,6 +3,7 @@
 		var FULL = 1;
 		var EMPTY = 0;
 		var MAX_FLOOR_NUMBER = 9999; //대충 지정
+		var NOT_FOUND = -1;
 		var upRequests = [];
 		var downRequests = [];
 
@@ -21,8 +22,7 @@
 				elevator.goingDownIndicator(false);
 				
 				var nearestRequestedFloorNumber = findNearestRequstedFloorNumber(elevator.currentFloor());
-
-				if (nearestRequestedFloorNumber === -1) {
+				if (nearestRequestedFloorNumber === NOT_FOUND) {
 					return;
 				}
 
@@ -31,36 +31,59 @@
 			});
 
 			elevator.on("floor_button_pressed", function(floorNum) {
+				elevator.goToFloor(floorNum);
+				elevator.destinationQueue = sortDestinations(elevator.destinationQueue, elevator.currentFloor(), elevator.currntFloor() > floorNum ? "down" : "up");
+				setIndicator(elevator, floorNum);
+				elevator.checkDestinationQueue();
+			});
+
+			elevator.on("passing_floor", function(floorNum, direction) {
 				if (isElevatorFull(elevator)) {
 					return;
 				}
 
-				if (isTargetFloorPlacedGoUpWay(elevator, floorNum) || isTargetPlacedGoDownWay(elevator, floorNum)) {
-					removeUpRequest(floorNum);
-					elevator.goToFloor(floorNum, true);
-				} else {
-					removeDownRequest(floorNum);
-					elevator.goToFloor(floorNum);
+				if (direction === "up") {
+					var destinations = elevator.destinationQueue.concat(upRequest);
+					upRequest = [];
+				} else if (direction === "down") {
+					var destinations = elevator.destinationQueue.concat(downRequest);
+					downRequest = [];
 				}
+				elevator.destinationQueue = sortDestinations(destinations, floorNum, direction);
+				elevator.checkDestinationQueue();
 			});
 		});
 
-		function removeUpRequest(floorNum) {
-			for(var index in upRequests) {
-				if (upRequests[index] === floorNum) {
-					upRequests.splice(index, 1);
-					return;
-				}
+		function sortDestinations(destinations, currentFloorNumber, direction) {
+			var upperFloorsSorted = getUpperFloorsSorted(destinations, currentFloorNumber);
+			var lowerFloorsSorted = getLowerFloorsSorted(destinations, currentFloorNumber);
+
+			if (direction === "up") {
+				return [currentFloorNumber].concat(upperFloorsSorted).concat(lowerFloorsSorted);
+			} else if (direction === "down") {
+				return [currentFloorNumber].concat(lowerFloorsSorted).concat(upperFloorsSorted);
 			}
+			return destinations;
 		}
 
-		function removeDownRequest(floorNum) {
-			for(var index in downRequests) {
-				if (downRequests[index] === floorNum) {
-					downRequests.splice(index, 1);
-					return;
+		function getUpperFloorsSorted(destinations, currentFloorNumber) {
+			var floors = [];
+			for(var index in destinations) {
+				if (destinations[index] > currentFloorNumber) {
+					floors.push(destination[index]);
 				}
 			}
+			return floors.sort(function(a, b) { return a - b; } );
+		}
+
+		function getLowerFloorsSorted(destinations, currentFloorNumber) {
+			var floors = [];
+			for(var index in destinations) {
+				if (destinations[index] < currentFloorNumber) {
+					floors.push(destination[index]);
+				}
+			}
+			return floors.sort(function(a, b) { return b - a; } );
 		}
 
 		function findNearestRequestedFloor(currentFloor) {
@@ -68,21 +91,21 @@
 			var nearestIndex = -1;
 			var isUpRequest = true;
 			for(var index in upRequests) {
-				if (Math.abs(upRequests[index] - currentFloor) < nearest) {
+				if (Math.abs(upRequests[index] - currentFloor) < Math.abs(nearest - currentFloor)) {
 					nearest = upRequests[index];
 					nearestIndex = index;
 					isUpRequest = true;
 				}
 			}
 			for(var index in downRequests) {
-				if (Math.abs(downRequests[index] - currentFloor) < nearest) {
+				if (Math.abs(downRequests[index] - currentFloor) < Math.abs(nearest - currentFloor)) {
 					nearest = downRequests[index];
 					nearestIndex = index;
 					isUpRequest = false;
 				}
 			}
 
-			if (nearestIndex !== -1) {
+			if (nearestIndex !== NOT_FOUND) {
 				if (isUpRequest) {
 					upRequests.splice(nearestIndex, 1);
 				} else {
@@ -91,7 +114,7 @@
 			}
 
 			if (nearest === MAX_FLOOR_NUMBER) {
-				return -1;
+				return NOT_FOUND;
 			}
 
 			return nearest;
@@ -110,14 +133,6 @@
 
 		function isElevatorFull(elevator) {
 			return elevator.loadFactor() === FULL;
-		}
-
-		function isTargetFloorPlacedGoUpWay(elevator, targetFloorNumber) {
-			return elevator.goingUpIndicator() && elevator.currentFloor() < targetFloorNumber && elevator.destinationQueue[0] > targetFloorNumber)
-		}
-
-		function isTargetFloorPlacedGoDownWay(elevator, targetFloorNumber) {
-			return elevator.goingDownIndicator() && elevator.currentFloor() > targetFloorNumber && elevator.destinationQueue[0] < targetFloorNumber)
 		}
 	},
 	update: function(dt, elevators, floors) {
